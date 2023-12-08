@@ -1,0 +1,15 @@
+###############################
+# Ignores Private Directories #
+###############################
+
+**/.terraform/
+
+########################################
+# Ignores Local State Management Files #
+########################################
+
+**/.terraform.lock.hcl
+**/.terraform.tfstate.lock.info
+**/private.auto.tfvars
+**/terraform.tfstate
+**/terraform.tfstate.backup
