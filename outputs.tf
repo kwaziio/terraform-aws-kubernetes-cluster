@@ -30,3 +30,21 @@ output "cluster_endpoint" {
   description = "Endpoint (Host) Required to Interact with Kubernetes Cluster API"
   value       = aws_eks_cluster.main.endpoint
 }
+
+##################################################################################
+# Provides Information for AWS VPC [Network] Resources Associated w/ this Module #
+##################################################################################
+
+output "network_id" {
+  description = "ID of the Virtual Private Cloud (VPC) [Network] Assocated w/ this Cluster"
+  value       = coalesce(var.kubernetes_cluster_network_id, data.aws_vpcs.selected[0].ids[0])
+}
+
+###############################################################################
+# Provides Information for AWS VPC Subnet Resources Associated w/ this Module #
+###############################################################################
+
+output "subnet_ids" {
+  description = "ID of the Virtual Private Cloud (VPC) Subnets Associated w/ this Cluster"
+  value       = coalesce(var.kubernetes_cluster_subnet_ids, data.aws_subnets.private[0].ids)
+}
