@@ -69,6 +69,18 @@ variable "kubernetes_cluster_firewall_ids" {
   type        = list(string)
 }
 
+variable "kubernetes_cluster_log_kms_key" {
+  default     = null
+  description = "ID of the KMS Key to Utilize When Encrypting Kubernetes Cluster Logs"
+  type        = string
+}
+
+variable "kubernetes_cluster_log_group_class" {
+  default     = "STANDARD"
+  description = "Storage Class to Utilize When Storing Kubernetes Cluster Logs"
+  type        = string
+}
+
 variable "kubernetes_cluster_log_retention" {
   default     = 7
   description = "Length of Time (in Days) to Retain Kubernetes Cluster Logs"
