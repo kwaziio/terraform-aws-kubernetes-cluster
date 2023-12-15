@@ -87,6 +87,12 @@ variable "kubernetes_cluster_log_retention" {
   type        = number
 }
 
+variable "kubernetes_cluster_manage_log_group" {
+  default     = true
+  description = "'true' if Terraform SHould Managed Kubernetes Cluster Logs"
+  type        = bool
+}
+
 variable "kubernetes_cluster_name" {
   description = "Name to Assign to the Created EKS Cluster"
   type        = string

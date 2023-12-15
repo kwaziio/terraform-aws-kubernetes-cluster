@@ -18,7 +18,7 @@ output "cluster_ca_certificate" {
 
 output "cluster_log_group" {
   description = "Name of the AWS CloudWatch Log Group for Accessing Control Plane Logs"
-  value       = aws_cloudwatch_log_group.eks_cluster.name
+  value       = var.kubernetes_cluster_manage_log_group ? one(aws_cloudwatch_log_group.eks_cluster).name : null
 }
 
 output "cluster_name" {

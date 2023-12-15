@@ -3,6 +3,7 @@
 ##################################################################
 
 resource "aws_cloudwatch_log_group" "eks_cluster" {
+  count             = var.kubernetes_cluster_manage_log_group ? 1 : 0
   kms_key_id        = var.kubernetes_cluster_log_kms_key
   log_group_class   = var.kubernetes_cluster_log_group_class
   name              = "/aws/eks/${var.kubernetes_cluster_name}/cluster"
