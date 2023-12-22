@@ -43,7 +43,7 @@ module "terraform_aws_kubernetes_cluster" {
   kubernetes_cluster_firewall_ids = "REPLACE_WITH_VPC_SG_IDS"
   kubernetes_cluster_name         = "REPLACE_WITH_CLUSTER_NAME"
   kubernetes_cluster_role_arn     = "REPLACE_WITH_CLUSTER_ROLE_ARN"
-  kubernetes_cluster_subnet_ids   = "REPLACE_WITH_VPC_SUBNET_IDS"
+  kubernetes_cluster_subnet_ids   = REPLACE_WITH_VPC_SUBNET_IDS
 }
 ```
 
