@@ -21,10 +21,6 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.21"
     }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 2.24"
-    }
   }
 }
 
@@ -36,30 +32,6 @@ provider "aws" {
   // DO NOT HARDCODE CREDENTIALS (Use Environment Variables)
 }
 
-######################################################
-# Retrieves Information About the Active AWS Session #
-######################################################
-
-data "aws_caller_identity" "current" {}
-
-#######################################################
-# Requests Temporary EKS Cluster Authentication Token #
-#######################################################
-
-data "aws_eks_cluster_auth" "admin" {
-  name = module.terraform_aws_kubernetes_cluster.cluster_name
-}
-
-#####################################
-# Kubernetes Provider Configuration #
-#####################################
-
-provider "kubernetes" {
-  cluster_ca_certificate = base64decode(module.terraform_aws_kubernetes_cluster.cluster_ca_certificate)
-  host                   = module.terraform_aws_kubernetes_cluster.cluster_endpoint
-  token                  = data.aws_eks_cluster_auth.admin.token
-}
-
 #########################################################
 # Example Terraform AWS Kubernetes Cluster Module Usage #
 #########################################################
@@ -67,12 +39,11 @@ provider "kubernetes" {
 module "terraform_aws_kubernetes_cluster" {
   source = "../../"
 
-  aws_auth_role_owners            = [data.aws_caller_identity.current.arn]
   kubernetes_cluster_cidr         = "10.X.0.0/16"
+  kubernetes_cluster_firewall_ids = "REPLACE_WITH_VPC_SG_IDS"
   kubernetes_cluster_name         = "REPLACE_WITH_CLUSTER_NAME"
-  kubernetes_cluster_network_name = "REPLACE_WITH_NETWORK_NAME"
-  kubernetes_cluster_role_name    = "REPLACE_WITH_CLUSTER_ROLE"
-  tags_environment                = "REPLACE_WITH_ENVIRONMENT"
+  kubernetes_cluster_role_arn     = "REPLACE_WITH_CLUSTER_ROLE_ARN"
+  kubernetes_cluster_subnet_ids   = "REPLACE_WITH_VPC_SUBNET_IDS"
 }
 ```
 
@@ -81,9 +52,9 @@ In the example above, you should replace the following templated values:
 Placeholder | Description
 --- | ---
 `REPLACE_WITH_CLUSTER_NAME` | Replace this w/ a Cluster Name that Makes Sense for Your Use Case
-`REPLACE_WITH_CLUSTER_ROLE` | Replace this w/ the Name of Your AWS IAM Cluster Role
-`REPLACE_WITH_ENVIRONMENT` | Replace this w/ the Name of Your AWS Environment (Tag)
-`REPLACE_WITH_NETWORK_NAME` | Replace this w/ the Name of Your AWS VPC (Network)
+`REPLACE_WITH_CLUSTER_ROLE_ARN` | Replace this w/ the ARN of Your AWS IAM EKS Cluster Role
+`REPLACE_WITH_VPC_SG_IDS` | Replace this w/ a List of VPC Security Group IDs
+`REPLACE_WITH_VPC_SUBNET_IDS` | Replace this w/ a List of VPC Subnet IDs
 `X` | Replace the Second Octet Value w/ Any Number from 0 to 255
 
 ## Prerequisites
@@ -100,47 +71,14 @@ Amazon Web Services (AWS) provides a managed Identity and Access Management (IAM
 The easiest way to create the required AWS IAM role for EKS is to copy-and-paste the following snippet of code into the Terraform project where you manage your AWS IAM resources:
 
 ```HCL
-###########################################################
-# Retrieves AWS Managed IAM Policy for EKS Cluster Access #
-###########################################################
+############################################
+# Creates an AWS IAM Role for EKS Clusters #
+############################################
 
-data "aws_iam_policy" "eks_cluster" {
-  name = "AmazonEKSClusterPolicy"
-}
+module "terraform_aws_role_eks_cluster" {
+  source = "../../"
 
-##########################################################################################
-# Creates AWS Identity and Access Management (IAM) Assume Role Policy for EKS Cluster(s) #
-##########################################################################################
-
-data "aws_iam_policy_document" "assume_role_eks_cluster" {
-  version = "2012-10-17"
-
-  statement {
-    actions    = ["sts:AssumeRole"]
-    effect     = "Allow"
-    principals = {
-      identifiers = ["eks.amazonaws.com"]
-      type        = "Service"
-    }
-  }
-}
-
-############################################################################
-# Creates AWS Identity and Access Management (IAM) Role for EKS Cluster(s) #
-############################################################################
-
-resource "aws_iam_role" "eks_cluster" {
-  assume_role_policy = data.aws_iam_policy_document.assume_role_eks_cluster.json
-  name               = "IAM_ROLE_NAME"
-}
-
-############################################################
-# Attaches Policies to the AWS IAM Role for EKS Cluster(s) #
-############################################################
-
-resource "aws_iam_role_policy_attachment" "eks_cluster" {
-  policy_arn = data.aws_iam_policy.eks_cluster.arn
-  role       = aws_iam_role.eks_cluster.name
+  iam_role_prefix = "IAM_ROLE_PREFIX"
 }
 ```
 
@@ -148,27 +86,47 @@ In the example above, you should replace the following templated value:
 
 Placeholder | Description
 --- | ---
-`IAM_ROLE_NAME` | Replace this w/ the Desired Name for Your EKS Cluster Role
+`IAM_ROLE_PREFIX` | Replace this w/ an Optional Prefix Used to Segregate Reusable Roles
+
+#### Providing an ARN for Your AWS IAM Role for EKS Clusters
+
+The AWS Identity and Access Management (IAM) Role for EKS Clusters can be assigned by providing its Amazon Resource Name (ARN) as an input for this module:
+
+```HCL
+#########################################################
+# Example Terraform AWS Kubernetes Cluster Module Usage #
+#########################################################
+
+module "terraform_aws_kubernetes_cluster" {
+  ...
+  kubernetes_cluster_role_arn = ["arn:aws:iam::123456789:role/example-service-eks-cluster"]
+  ...
+}
+```
 
 ### 2. Creating an AWS VPC Security Group for EKS
 
-Amazon Web Services (AWS) assigns Virtual Private Cloud (VPC) security groups to Elastic Kubernetes Service (EKS) clusters. Before deploying this module, we recommend creating a VPC security group in your targeted VPC with the following rules:
+Amazon Web Services (AWS) assigns Virtual Private Cloud (VPC) security groups to Elastic Kubernetes Service (EKS) clusters. Before deploying this module, we recommend creating a VPC security group in your targeted VPC with the required rules.
 
-Direction | Port | Protocol | Source / Destination | Description
---- | --- | --- | ---
-EGRESS | ALL | ALL | `0.0.0.0/0` | Allows All Outbound Access via IPv4
-EGRESS | ALL | ALL | `::0` | Allows All Outbound Access via IPv6
-INGRESS | 53 | TCP | SELF | Allows DNS Traffic via TCP
-INGRESS | 53 | UDP | SELF | Allows DNS Traffic via UDP
-INGRESS | 443 | TCP | SELF | Allows HTTPS Traffic via TCP
-INGRESS | 10250 | TCP | SELF | Allows Kubelet API Traffic via TCP
+The easiest way to create the required AWS VPC Security Group for EKS is to copy-and-paste the following snippet of code into the Terraform project where you manage your AWS networking resources:
 
-There are two ways to associate this VPC security group with the EKS cluster created by this module:
+```HCL
+#################################################
+# Creates a VPC Security Group for EKS Clusters #
+#################################################
 
-1. Provide a List of VPC Security Group IDs
-2. Add Required Tags to VPC Security Groups
+module "terraform_aws_firewall_eks_cluster" {
+  source = "kwaziio/firewall-eks-cluster/aws"
 
-> NOTE: Between the two options, providing a list of VPC Security Group IDs will always take precedence.
+  network_id = "NETWORK_ID"
+}
+```
+
+In the example above, you should replace the following templated value:
+
+Placeholder | Description
+--- | ---
+`NETWORK_ID` | Replace this w/ the ID of Your Targeted AWS Virtual Private Cloud (VPC)
 
 #### Providing a List of VPC Security Group IDs
 
@@ -185,16 +143,6 @@ module "terraform_aws_kubernetes_cluster" {
   ...
 }
 ```
-
-#### Assigning VPC Security Groups by Tags
-
-If NO VPC Security Group IDs are provided as input values for this module, the module will attempt to find required groups by searching the targeted VPC for groups with the following tags:
-
-Tag Name | Tag Value
---- | ---
-Application | `kubernetes`
-Component | `cluster`
-Environment | Value Assigned to the Module's `tags_environment` Variable
 
 ### Connecting to the Cluster
 
@@ -243,50 +191,9 @@ Check us out at [https://www.kwazi.io](https://www.kwazi.io).
 
 Before launching this module, your team should agree on the following decision points:
 
-1. Who will be granted access to the cluster?
-2. What CIDR should be used internally by the cluster?
-3. What logging requirements are enforced by your organization?
-4. Will your cluster need to be accessible by resources external to its VPC?
-
-### Who will be granted access to the cluster?
-
-By default, Amazon Web Services (AWS) only permits the user that created an EKS cluster to communicate with the cluster API. This module dynamically modifies the cluster's configuration to grant access based several input variables.
-
-Before granting access to users, you should first determine how users will be added to the cluster. To add all users and roles for an account, set the following variable:
-
-```HCL
-aws_auth_accounts = ["123456789"] # Replace w/ Desired AWS Account IDs
-```
-
-To grant access to individual AWS IAM roles, set the following variable:
-
-```HCL
-aws_auth_roles = [
-  {
-    groups = [
-      "system:view", # Replace w/ Desired Kubernetes Group(s)
-    ]
-    rolearn  = "arn:aws:iam::123456789:role/example-role" # Replace w/ Desired ARN
-    username = "guest"                                    # Replace w/ Desired Username
-  }
-]
-```
-
-To grant access to individual AWS IAM users, set the following variable:
-
-```HCL
-aws_auth_users = [
-  {
-    groups = [
-      "system:view", # Replace w/ Desired Kubernetes Group(s)
-    ]
-    userarn  = "arn:aws:iam::123456789:user/example-user" # Replace w/ Desired ARN
-    username = "guest"                                    # Replace w/ Desired Username
-  }
-]
-```
-
-For more information, see the section [Granting API Access.](#granting-api-access)
+1. What CIDR should be used internally by the cluster?
+2. What logging requirements are enforced by your organization?
+3. Will your cluster need to be accessible by resources external to its VPC?
 
 ### What CIDR should be used internally by the cluster?
 
@@ -339,10 +246,9 @@ Resource Name | Creation Condition
 --- | ---
 AWS CloudWatch Log Group | Always
 AWS Elastic Kubernetes Service (EKS) Cluster | Always
-Kubernetes Configuration Map | Always
 
 ## Usage Examples
 
 The following example(s) are provided as guidance:
 
-* [examples/minimal](examples/minimal/README.md)
+* [examples/complete](examples/complete/README.md)

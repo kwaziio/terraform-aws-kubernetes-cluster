@@ -1,12 +1,3 @@
-#############################################################
-# Provides Information for AWS Authentication Configuration #
-#############################################################
-
-output "aws_auth_data" {
-  description = "Kubernetes AWS Authentication Configuration Map Data"
-  value       = yamlencode(kubernetes_config_map_v1_data.aws_auth.data)
-}
-
 ################################################################################
 # Provides Information for Kubernetes Cluster Resources Created by this Module #
 ################################################################################
@@ -31,13 +22,9 @@ output "cluster_endpoint" {
   value       = aws_eks_cluster.main.endpoint
 }
 
-##################################################################################
-# Provides Information for AWS VPC [Network] Resources Associated w/ this Module #
-##################################################################################
-
-output "network_id" {
-  description = "ID of the Virtual Private Cloud (VPC) [Network] Assocated w/ this Cluster"
-  value       = coalesce(var.kubernetes_cluster_network_id, data.aws_vpcs.selected[0].ids[0])
+output "cluster_version" {
+  description = "Kubernetes Version Used by the Created Kubernetes Cluster"
+  value       = aws_eks_cluster.main.version
 }
 
 ###############################################################################
@@ -46,5 +33,5 @@ output "network_id" {
 
 output "subnet_ids" {
   description = "ID of the Virtual Private Cloud (VPC) Subnets Associated w/ this Cluster"
-  value       = coalesce(var.kubernetes_cluster_subnet_ids, data.aws_subnets.private[0].ids)
+  value       = var.kubernetes_cluster_subnet_ids
 }
