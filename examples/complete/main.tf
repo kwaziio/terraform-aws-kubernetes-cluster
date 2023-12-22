@@ -35,19 +35,6 @@ module "terraform_aws_role_eks_cluster" {
   }
 }
 
-module "terraform_aws_role_eks_node" {
-  source = "kwaziio/role-eks-node/aws"
-
-  iam_role_enable_ebs_csi        = true
-  iam_role_enable_efs_csi        = true
-  iam_role_enable_full_s3_access = true
-  iam_role_prefix                = "example-service-"
-
-  resource_tags = {
-    Environment = "examples"
-  }
-}
-
 module "network" {
   source = "kwaziio/network/aws"
 
@@ -97,19 +84,6 @@ module "terraform_aws_firewall_eks_cluster" {
 
   network_id = module.network.network_id
 }
-
-module "terraform_aws_firewall_eks_node" {
-  source = "kwaziio/firewall-eks-node/aws"
-
-  firewall_bastion_id = module.network.firewall_bastion_id
-  network_id          = module.network.network_id
-}
-
-######################################################
-# Retrieves Information About the Active AWS Session #
-######################################################
-
-data "aws_caller_identity" "current" {}
 
 #########################################################
 # Example Terraform AWS Kubernetes Cluster Module Usage #
